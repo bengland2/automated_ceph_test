@@ -1,5 +1,11 @@
 #!/usr/bin/bash +x
 
+try_ceph_install() {
+  (/bin/bash +x ./launch.sh --ceph-ansible /usr/share/ceph-ansible && \
+   ansible -i $inventory_file -m script -a \
+     "$script_dir/scripts/utils/check_cluster_status.py" mon-000)
+}
+
 # this script implements the Jenkins job by the same name,
 # just call it in the "Execute shell" field 
 # in the job configuration
@@ -54,32 +60,36 @@ sudo cp $script_dir/staging_area/tmp/osds.yml /usr/share/ceph-ansible/group_vars
 sudo cp /usr/share/ceph-ansible/site.yml.sample /usr/share/ceph-ansible/site.yml
 
 
+#upgrade ansible if necessary
+yum upgrade -y ansible
+
 #Start Ceph-linode deployment
 cd $HOME/ceph-linode
 echo "$Linode_Cluster_Configuration" > cluster.json
 virtualenv-2 linode-env && source linode-env/bin/activate && pip install linode-python
 export LINODE_API_KEY=$Linode_API_KEY
+try_ceph_install
 
-ANSIBLE_STRATEGY=debug; /bin/bash +x ./launch.sh --ceph-ansible /usr/share/ceph-ansible
-#sudo ansible -i ansible_inventory -m shell -a "ceph -s" mon-000
+# if it fails and we have a version adjustment repo, 
+# use that and retry ceph-ansible
+# this is a hack to work around the lack of correct ansible version and/or
+# and lack of latest versions of selinux-policy RPMs in centos
+# when a new RHEL version is released.
+# it only is used if ceph-ansible fails.  This isn't so bad because
+# running it again doesn't take as long the 2nd time.
+# the extra repo we insert is given by version_adjust_repo URL parameter
+# also passed to preceding job
 
-sleep 30
-yum install ceph-common -y
-#save off the first mon in the inventory list, used to fetch ceph.conf file for agent host. 
-for i in `ansible --list-host -i $inventory_file mons |grep -v hosts | grep -v ":"`
-    do
-    	monname=$i
-    	break
-done
-
-ansible -m fetch -a "src=/etc/ceph/ceph.conf dest=/etc/ceph/ceph.conf.d" $monname -i $inventory_file
-cp /etc/ceph/ceph.conf.d/$monname/etc/ceph/ceph.conf /etc/ceph/ceph.conf
-
-ceph_client_key=/ceph-ansible-keys/`ls /ceph-ansible-keys/ | grep -v conf`/etc/ceph/ceph.client.admin.keyring
-cp $ceph_client_key /etc/ceph/ceph.client.admin.keyring
-
-#Health check
-$script_dir/scripts/utils/check_cluster_status.py
-exit_status=$?
-
-exit $exit_status
+if [ $? != 0 -a -n "$version_adjust_repo" ] ; then 
+    version_adjust_name=`basename $version_adjust_repo`
+	yum clean all
+	yum install -y libselinux-python || yum upgrade -y libselinux-python
+	export ANSIBLE_INVENTORY=~/ceph-linode/ansible_inventory
+    ansible -m shell -a "rm -rf $version_adjust_name" all
+	ansible -m copy -a "src=~/$version_adjust_name dest=./" all
+    ansible -m shell -a \
+      "ln -svf ~/$version_adjust_name/version_adjust.repo /etc/yum.repos.d/" all
+    ansible -m shell -a \
+      'yum clean all ; yum install -y libselinux-python || yum upgrade -y libselinux-python' all
+    try_ceph_install
+fi
