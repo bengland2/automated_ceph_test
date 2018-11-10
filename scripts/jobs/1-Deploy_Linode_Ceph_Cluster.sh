@@ -60,9 +60,6 @@ sudo cp $script_dir/staging_area/tmp/osds.yml /usr/share/ceph-ansible/group_vars
 sudo cp /usr/share/ceph-ansible/site.yml.sample /usr/share/ceph-ansible/site.yml
 
 
-#upgrade ansible if necessary
-yum upgrade -y ansible
-
 #Start Ceph-linode deployment
 cd $HOME/ceph-linode
 echo "$Linode_Cluster_Configuration" > cluster.json
