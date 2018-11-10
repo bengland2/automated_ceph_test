@@ -12,6 +12,8 @@
 
 (( teardown_sec = $teardown_delay_minutes * 60 ))
 echo "waiting $teardown_sec seconds before tear-down"
+echo 'to suspend teardown indefinitely, do "touch /tmp/suspend_teardown" on remote agent'
+echo 'but then you must remove this file for teardown to complete'
 sleep $teardown_sec
 
 while [ -f /tmp/suspend_teardown ] ; do
