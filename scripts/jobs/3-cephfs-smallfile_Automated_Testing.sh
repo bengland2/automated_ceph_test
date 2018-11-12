@@ -52,13 +52,13 @@ mkdir -v $archive_dir
 
 ansible -m shell -a 'yum install -y rsync' clients || exit 1
 
-if [ -n "$cbt_url" ] ; then
-	clone_branch $cbt_url
-fi
+clone_branch $cbt_url
+clone_branch $smallfile_url
 
-if [ -n "$smallfile_url" ] ; then
-	clone_branch $smallfile_url
-fi
+# CBT doesn't know where you put smallfile
+# so it expects it to be in PATH
+ln -svf ~/smallfile/smallfile_cli.py /usr/local/bin
+ansible -m shell -a "ln -svf ~/smallfile/smallfile_remote.py /usr/local/bin/" clients
 
 echo "$smallfile_settings" | tee $archive_dir/automated_test.yml
 
@@ -98,11 +98,16 @@ umount $mountpoint
 source /etc/profile.d/pbench-agent.sh
 rm -rf $archive_dir/cbt_results
 mkdir -pv $archive_dir/cbt_results
-echo "$cbt_smallfile_settings"
-echo "$cbt_smallfile_settings" > $archive_dir/benchmark.yaml
+benchyaml=$archive_dir/benchmark.yaml
+echo "$cbt_smallfile_settings" > $benchyaml
+# need to get indentation right for YAML, next cmd copies indentation
+grep 'operation:' $benchyaml | sed 's#operation:.*$#top: /mnt/cephfs/smf#' >> $benchyaml
 $script_dir/scripts/utils/addhost_to_jobfile.sh $archive_dir/benchmark.yaml $ANSIBLE_INVENTORY
-echo "################Jenkins Job File################"
-cat $jobfiles_dir/automated_test.yml
+echo "################ CBT YAML input ################"
+cat $archive_dir/benchmark.yaml
+# CBT uses localhost in "head" role so we need password-less 
+# ssh access to localhost, this command fixes known_hosts to allow it
+ssh -o StrictHostKeyChecking=no localhost pwd
 
 pbench-user-benchmark -- python ~/cbt/cbt.py -a $archive_dir/cbt_results $archive_dir/benchmark.yaml
 rc=$?
