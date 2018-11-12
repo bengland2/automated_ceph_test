@@ -7,9 +7,6 @@ mon_port=6789
 mountpoint=/mnt/cephfs
 NOTOK=1
 
-yum remove ceph-base librados2 -y
-yum install ceph-fuse ceph-common -y
-
 # this subroutine installs software from github
 # if it's a branch rather than master, you
 # have to do a couple of extra steps
@@ -66,11 +63,9 @@ echo "$smallfile_settings" | tee $archive_dir/automated_test.yml
 
 mon_ip=`ansible -m shell -a 'echo {{ hostvars[groups["mons"][0]]["ansible_ssh_host"] }}' localhost | grep -v localhost`
 
-# fetch and distribute client.admin key to Cephfs clients in expected format
+# distribute client key to Cephfs clients in expected format
 
-rm -f /etc/ceph/cephfs.key
-(scp $mon_ip:/etc/ceph/ceph.conf /etc/ceph/ && \
- scp $mon_ip:/etc/ceph/ceph.client.admin.keyring /etc/ceph/ceph.client.admin.keyring && \
+(rm -f /etc/ceph/cephfs.key && \
  awk '/==/{ print $NF }' /etc/ceph/ceph.client.admin.keyring > /etc/ceph/cephfs.key && \
  ansible -m copy -a 'src=/etc/ceph/cephfs.key dest=/etc/ceph/' clients) \
   || exit $NOTOK
