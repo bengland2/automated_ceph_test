@@ -91,6 +91,12 @@ def process_data(test_id):
                     for rados_obj in analyze_cbt_rados_results_generator:
                         yield rados_obj
 
+                if "smallfile" in cbt_config_gen.config['benchmarks']:
+                    logger.warn("smallfile is under development")
+                    analyze_smf_results_generator = cbt_smf_analyzer.analyze_cbt_smf_results(dirpath, cbt_config_gen, copy.deepcopy(test_metadata))
+                    for smf_obj in analyze_cbt_rados_results_generator:
+                        yield smf_obj
+
 class argument_handler():
     def __init__(self):
         self.test_id = ""
