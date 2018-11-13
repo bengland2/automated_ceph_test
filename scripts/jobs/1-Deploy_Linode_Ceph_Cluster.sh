@@ -17,9 +17,19 @@ systemctl stop iptables
 script_dir=$HOME/automated_ceph_test
 inventory_file=$HOME/ceph-linode/ansible_inventory
 
+
 # clean house, so we don't have previous version of Ceph interfering
 sudo yum remove ceph-base ceph-ansible librados2 -y
 rm -rf /usr/share/ceph-ansible
+yum-config-manager --disable epel
+
+# install precise ansible version if necessary
+if [ -n "$ansible_version" ] ; then
+	yum install ansible-$ansible_version
+else
+	yum install ansible
+fi
+
 
 cd $script_dir/staging_area/rhcs_latest/
 new_ceph_iso_file="$(ls)"
