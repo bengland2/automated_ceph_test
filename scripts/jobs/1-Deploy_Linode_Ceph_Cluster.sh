@@ -43,8 +43,9 @@ else
 	yum install -y ansible
 fi
 
-#install ceph-ansible
-sudo yum install ceph-ansible -y
+# install ceph-ansible
+# python-rados is so that check_cluster_status.py will work
+yum install ceph-ansible python-rados -y || exit $NOTOK
 
 sudo sed -i 's/gpgcheck=1/gpgcheck=0/g' /usr/share/ceph-ansible/roles/ceph-common/templates/redhat_storage_repo.j2
 
