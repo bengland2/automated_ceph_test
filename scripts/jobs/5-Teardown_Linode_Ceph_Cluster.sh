@@ -18,7 +18,7 @@ echo "to cause immediate teardown, touch /tmp/teardown-now"
 while [ $teardown_sec -gt 0 ] ; do
     if [ -f /tmp/teardown-now ] ; then
         echo "saw /tmp/teardown-now, starting tear-down now"
-        rm -fv /tmp/teardown_now
+        rm -fv /tmp/teardown-now
         break
     fi
     sleep 60
@@ -37,7 +37,7 @@ done
 # first tear down Ceph on this agent 
 # so we don't have dangling mountpoints, etc
 
-umount -a -ff -t ceph -v
+umount -a -ff -t ceph
 yum remove -y ceph-common ceph-fuse librados2 ceph-ansible
 leftovers=`rpm -qa | awk '/ceph/||/librados/||/librbd/' | wc -l` 
 if [ $leftovers -gt 0 ] ; then
@@ -50,4 +50,6 @@ fi
 cd $HOME/ceph-linode/
 virtualenv-2 linode-env && source linode-env/bin/activate && pip install linode-python
 export LINODE_API_KEY=$Linode_API_Key
-python ./linode-destroy.py
+python ./linode-destroy.py || exit 1
+echo "LINODE_GROUP = `cat ~/ceph-linode/LINODE_GROUP`"
+rm -fv ~/ceph-linode/LINODE_GROUP
