@@ -62,6 +62,8 @@ cd $HOME/ceph-linode
 echo "$Linode_Cluster_Configuration" > cluster.json
 virtualenv-2 linode-env && source linode-env/bin/activate && pip install linode-python
 export LINODE_API_KEY=$Linode_API_KEY
+# careful, inventory file may not exist yet
+export ANSIBLE_INVENTORY=$inventory_file
 
 
 # if we have a version adjustment repo, use it
@@ -81,7 +83,6 @@ if [ -n "$version_adjust_repo" ] ; then
     # just create VMs
     /bin/bash +x ./launch.sh --ceph-ansible /tmp/ceph-ansible
     # ignore the error status, but make sure you have inventory
-    export ANSIBLE_INVENTORY=$inventory_file
     if [ ! -f $ANSIBLE_INVENTORY ] ; then
         echo "failed to start linodes"
         exit $NOTOK
@@ -107,12 +108,12 @@ if [ -n "$version_adjust_repo" ] ; then
     # version can't satisfy.
 
     ansible -m shell -a \
-      'yum clean all ; yum install -y libselinux-python || yum upgrade -y libselinux-python' all
-else
+      'yum clean all ; yum install -y libselinux-python || yum upgrade -y libselinux-python' all \
+      || exit $NOTOK
+elif [ -f $ANSIBLE_INVENTORY ] ; then
     # remove any prior version adjustment repo
-    ansible -m file -a "path=/etc/yum.repos.d/version_adjust.repo state=absent" all
-    ansible -m file -a "path=~/$version_adjust_name state=absent" all
-    ansible -m shell -a "yum clean all" all
+    (ansible -m file -a "path=/etc/yum.repos.d/version_adjust.repo state=absent" all && \
+     ansible -m shell -a "yum clean all" all) || exit $NOTOK
 fi
 
 # run launch.sh again, this time with correct ceph-ansible path
