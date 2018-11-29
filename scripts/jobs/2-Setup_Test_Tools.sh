@@ -23,62 +23,47 @@ script_dir=$HOME/automated_ceph_test
 #set inventory file
 hostname | grep linode.com
 if [ $? = 0 ]; then
-	export linode_cluster=true
-	echo "setting up for linode"
-	inventory_file=$HOME/ceph-linode/ansible_inventory
-    > $HOME/.ssh/config
+    export linode_cluster=true
+    echo "setting up for linode"
+    inventory_file=$HOME/ceph-linode/ansible_inventory
 else
-	inventory_file=$script_dir/ansible_inventory
+    inventory_file=$script_dir/ansible_inventory
 fi 
-
-#function to add host to 
-function add_to_sshconfig {
-	# if user have predefined users, it is their responsibility to setup ssh keys user register_host.sh
-	if [ "$linode_cluster" == "true" ]; then
-		new_config="
-		Host $1
-	  		User root
-	  		StrictHostKeyChecking no
-		"
-	
-		echo "$new_config" >> $HOME/.ssh/config
-	fi 
-}
 
 #Based on user input register pbench monitoring tools
 function register_tools {
     hst=$1
     if [ "$sar" = "true" ]; then
-	register_tool sar $hst $sar_interval
+        register_tool sar $hst $sar_interval
     fi
     if [ "$iostat" = "true" ]; then
-	register_tool iostat $hst $iostat_interval
+        register_tool iostat $hst $iostat_interval
     fi
     if [ "$mpstat" = "true" ]; then
-	register_tool mpstat $hst $mpstat_interval
+        register_tool mpstat $hst $mpstat_interval
     fi
     if [ "$pidstat" = "true" ]; then
-	register_tool pidstat $hst $pidstat_interval
+        register_tool pidstat $hst $pidstat_interval
     fi
     if [ "$proc_vmstat" = "true" ]; then 
-	register_tool proc-vmstat $hst $proc_vmstat_interval
+        register_tool proc-vmstat $hst $proc_vmstat_interval
     fi
     if [ "$proc_interrupts" = "true" ]; then
-	register_tool proc-interrupts $hst $proc_interrupts_interval
+        register_tool proc-interrupts $hst $proc_interrupts_interval
     fi
     if [ "$turbostat" = "true" ]; then
-	    if [ "$linode_cluster" = "true" ] ; then
-		    echo "you cannot run turbostat within linode VM"
-		    exit 1
-	    fi
-	    register_tool turbostat $hst $turbostat_interval
+        if [ "$linode_cluster" = "true" ] ; then
+            echo "you cannot run turbostat within linode VM"
+        else
+            register_tool turbostat $hst $turbostat_interval
+        fi
     fi
 }
 
 
 if [ "$linode_cluster" == "true" ]; then
-	echo "copy linode inventory"
-	cp $HOME/ceph-linode/ansible_inventory $inventory_file
+    echo "copy linode inventory"
+    cp $HOME/ceph-linode/ansible_inventory $inventory_file
 fi
 
 echo "$service_inventory" >> $inventory_file
@@ -112,21 +97,18 @@ ansible -m yum -a "name=$epel_repo_rpm_url" all
 echo "******************* registering tools:"
 
 source /etc/profile.d/pbench-agent.sh
-(ansible --list-host -i $inventory_file all | \
-  grep -v hosts | \
-  grep -v ':' || \
-  exit 1) > /tmp/host.list
+ansible --list-host all | grep -v hosts | grep -v ':' > /tmp/host.list
 
 for i in `cat /tmp/host.list`
     do
-		echo "setting up host $i"
-	    if [ "$linode_cluster" = "true" ]; then
-	    		echo "Registering tools on Linode host"
-	    		IP_address=`cat $inventory_file | grep $i | awk {'print $2'} | sed 's/.*=//'`
-	    		(add_to_sshconfig $IP_address && register_tools $IP_address) || exit 1
-	    else
-	    		echo "Registering tools on pre-existing host"
-	    		(add_to_sshconfig $i && register_tools $i) || exit 1
-	    fi
+        echo "setting up host $i"
+        if [ "$linode_cluster" = "true" ]; then
+            echo "Registering tools on Linode host"
+            IP_address=`cat $inventory_file | grep $i | awk {'print $2'} | sed 's/.*=//'`
+            register_tools $IP_address || exit $NOTOK
+        else
+            echo "Registering tools on pre-existing host"
+            register_tools $i || exit $NOTOK
+        fi
 done
 
