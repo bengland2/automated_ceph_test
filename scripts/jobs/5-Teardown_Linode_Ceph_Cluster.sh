@@ -10,9 +10,12 @@
 # Jenkins will stop the pipeline immediately,
 # this makes troubleshooting a pipeline much easier for the user
 
-echo "to suspend teardown indefinitely, "
-echo "touch /tmp/suspend-teardown before teardown delay expires"
-echo "to cause immediate teardown, touch /tmp/teardown-now"
+echo "to suspend teardown indefinitely: touch /tmp/suspend-teardown"
+echo "to resume teardown:               rm /tmp/suspend-teardown"
+echo "to cause immediate teardown:      touch /tmp/teardown-now"
+echo "you must login to the remote agent from jenkins master to use this"
+echo "teardown script will check for these files every 60 seconds"
+echo ""
 
 (( teardown_sec = $teardown_delay_minutes * 60 ))
 while [ $teardown_sec -gt 0 ] ; do
