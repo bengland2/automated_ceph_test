@@ -31,6 +31,7 @@ rm -rf /ceph-ansible-keys
 mkdir -m0777 /ceph-ansible-keys
 
 #mount ISO and create rhcs yum repo file 
+
 cp $script_dir/staging_area/repo_files/rhcs.repo /etc/yum.repos.d/
 mkdir -p /mnt/rhcs_latest/
 umount /mnt/rhcs_latest/
@@ -38,15 +39,28 @@ mount $script_dir/staging_area/rhcs_latest/RHCEPH* /mnt/rhcs_latest/
 yum clean all
 
 # install precise ansible version if necessary
+
 if [ -n "$ansible_version" ] ; then
     yum install -y ansible-$ansible_version
 fi
 
-#install ceph-ansible
-# python-rados is so check_cluster_status.py will work
-yum install python-rados ceph-ansible -y
+#install ceph-ansible and ceph client packages
+#there must not be any dependencies on ceph-selinux 
+#for this to work reliably
+# break this up into separate installs so yum doesn't choke
+
+yum install ceph-fuse -y
+yum install ceph-common -y
+yum install ceph-ansible -y
+yum install ceph-fuse ceph-common ceph-ansible -y || exit $NOTOK
+
+# disable key checking in Ceph RPMs to avoid need for 
+# "redhatbuild" GPG RPM key in beta releases
+# described at https://wiki.test.redhat.com/CEPH
 
 sed -i 's/gpgcheck=1/gpgcheck=0/g' /usr/share/ceph-ansible/roles/ceph-common/templates/redhat_storage_repo.j2
+
+# provide inputs to ceph-ansible
 
 mkdir -p $script_dir/staging_area/tmp
 echo "$ceph_ansible_all_config" > $script_dir/staging_area/tmp/all.yml
@@ -79,7 +93,7 @@ if [ -n "$version_adjust_repo" ] ; then
     # without actually running ceph-ansible
 
     mkdir -p /tmp/ceph-ansible/roles
-    touch /tmp/ceph-ansible/site.yml
+    touch /tmp/ceph-ansible/site.yml.sample
     # just create VMs
     /bin/bash +x ./launch.sh --ceph-ansible /tmp/ceph-ansible
     # ignore the error status, but make sure you have inventory
@@ -128,16 +142,8 @@ fi
 export first_mon=`ansible --list-host mons |grep -v hosts | grep -v ":" | head -1`
 export first_mon_ip=`ansible -m shell -a 'echo {{ hostvars[groups["mons"][0]]["ansible_ssh_host"] }}' localhost | grep -v localhost`
 
-# python-rados package must be installed on monitor 
-# to run check_cluster_status.py there
-
-ansible -m yum -a 'name=python-rados' $first_mon
 ansible -m script -a "$script_dir/scripts/utils/check_cluster_status.py" $first_mon \
  || exit $NOTOK
-
-# ceph-fuse enables cephfs testing using agent as a head node
-
-yum install ceph-fuse ceph-common -y || exit $NOTOK
 
 # make everyone in the cluster able to run ceph -s
 # make agent able to access Ceph cluster as client
