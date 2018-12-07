@@ -12,27 +12,28 @@ NOTOK=1
 # have to do a couple of extra steps
 
 clone_branch() {
-	cd
-	git_url=$1
-	echo $git_url | grep '/tree/'
-	if [ $? = 0 ] ; then
-		git_branch_name=`basename $git_url`
-		git_branch_tree=`dirname $git_url`
-		git_site=`dirname $git_branch_tree`
-	else
-		git_site=$git_url
-	fi
-	git_dirname=`basename $git_site`
-	rm -rf $git_dirname
-	git clone $git_site
-	cd $git_dirname
-	if [ -n "$git_branch_name" ] ; then
-		git fetch $git_site $git_branch_name
-		git checkout $git_branch_name
-	fi
-	rm -rf .git
-	cd
-	ansible -m synchronize -a "src=~/$git_dirname delete=yes dest=./" clients
+    cd
+    git_url=$1
+    echo $git_url | grep '/tree/'
+    if [ $? = 0 ] ; then
+        git_branch_name=`basename $git_url`
+        git_branch_tree=`dirname $git_url`
+        git_site=`dirname $git_branch_tree`
+    else
+        unset git_branch_name
+        git_site=$git_url
+    fi
+    git_dirname=`basename $git_site`
+    rm -rf $git_dirname
+    git clone $git_site
+    cd $git_dirname
+    if [ -n "$git_branch_name" ] ; then
+        git fetch $git_site $git_branch_name
+        git checkout $git_branch_name
+    fi
+    rm -rf .git
+    cd
+    ansible -m synchronize -a "src=~/$git_dirname delete=yes dest=./" clients
 }
 
 hostname | grep -q linode.com
@@ -46,7 +47,7 @@ export ANSIBLE_INVENTORY=$inventory_file
 rm -rf $archive_dir
 mkdir -v $archive_dir
 
-ansible -m shell -a 'yum install -y rsync' clients || exit 1
+ansible -m yum -a 'name=rsync state=present' clients || exit $NOTOK
 
 clone_branch $cbt_url
 clone_branch $smallfile_url
@@ -60,7 +61,7 @@ echo "$smallfile_settings" | tee $archive_dir/automated_test.yml
 
 # get monitor IP address, we'll need that to mount Cephfs
 
-mon_ip=`ansible -m shell -a 'echo {{ hostvars[groups["mons"][0]]["ansible_ssh_host"] }}' localhost | grep -v localhost`
+mon_ip=`awk '/mon host/{ print $NF }' /etc/ceph/ceph.conf`
 
 # distribute client key to Cephfs clients in expected format
 
