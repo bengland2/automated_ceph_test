@@ -47,7 +47,11 @@ umount -a -ff -t ceph
 
 hostname | grep linode.com
 if [ $? == 0 ] ; then
+    linode_cluster=1
+fi
 
+if [ -z "$called_from_deploy" ] ; then
+  if [ -n "$linode_cluster" ] ; then
     # now tear down the linode cluster
 
     cd $HOME/ceph-linode/
@@ -57,7 +61,7 @@ if [ $? == 0 ] ; then
     echo "LINODE_GROUP = `cat ~/ceph-linode/LINODE_GROUP`"
     rm -fv ~/ceph-linode/LINODE_GROUP
 
-else
+  else
 
     # get rid of repo file and /mnt/rhcs_latest that repo file points to
 
@@ -74,13 +78,9 @@ else
         ansible-playbook -v -e ireallymeanit=yes infrastructure-playbooks/purge-cluster.yml || exit 1
         ansible -v -m shell -a 'lsblk' all
     fi
+  fi
 fi
 
 # don't get rid of ceph-ansible until you've run purge-cluster
 
-yum remove -y ceph-common ceph-fuse librados2 ceph-ansible
-leftovers=`rpm -qa | awk '/ceph/||/librados/||/librbd/' | wc -l` 
-if [ $leftovers -gt 0 ] ; then
-    echo 'not all Ceph RPMS removed!'
-    rpm -qa | awk '/ceph/||/librados/||/librbd/'
-fi
+yum remove -y ceph-common ceph-fuse librados2 ceph-ansible ansible
