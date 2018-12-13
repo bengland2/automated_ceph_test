@@ -42,7 +42,7 @@ fi
 #issue pkill command, command will kill command with full process name containing host
 #make sure you match only that one
 #SIGTERM
-pkill -f "-N $host "
+pkill -f -- "-N $host "
 
 #remove host from agent_list, create back up just in case
 sed -i.bak "/^$agent_name=/d" ~/agent_list
