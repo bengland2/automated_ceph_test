@@ -27,7 +27,8 @@ fi
 # careful, inventory file may not exist yet
 export ANSIBLE_INVENTORY=$inventory_file
 
-called_from_deploy=1 bash -x $script_dir/scripts/jobs/5-Teardown_Ceph_Cluster.sh
+# it is expected that the user (or pipeline) has done this first
+#  called_from_deploy=1 bash -x $script_dir/scripts/jobs/5-Teardown_Ceph_Cluster.sh
 
 # clean house, so we don't have previous version of Ceph interfering
 #yum remove ceph-base ceph-ansible ansible librados2 -y
