@@ -60,7 +60,7 @@ echo "$smallfile_settings" | tee $archive_dir/automated_test.yml
 
 # get monitor IP address, we'll need that to mount Cephfs
 
-mon_ip=`ansible -m shell -a 'echo {{ hostvars[groups["mons"][0]]["ansible_ssh_host"] }}' localhost | grep -v localhost`
+mon_ip=`grep '^mon host' /etc/ceph/ceph.conf | awk '{ print $NF }' | awk -F, '{ print $1 }'`
 
 # distribute client key to Cephfs clients in expected format
 
