@@ -42,8 +42,15 @@ else
 fi
 export ANSIBLE_INVENTORY=$inventory_file
 
+ansible -m shell -a 'hostname -s' clients | grep -v SUCCESS > /tmp/h.tmp
+for h in `cat /tmp/h.tmp` ; do hostlist="$hostlist $h" ; done
+csv_hostlist=`echo $hostlist | sed 's/ /,/g'`
+
 rm -rf $archive_dir
 mkdir -v $archive_dir
+
+# must have rsync installed everywhere for ansible synchronize module
+# used by clone_branch function
 
 ansible -m shell -a 'yum install -y rsync' clients || exit 1
 
@@ -94,11 +101,6 @@ source /etc/profile.d/pbench-agent.sh
 resultdir=$archive_dir/fs-drift-results
 mkdir -pv $resultdir
 
-echo '<CLI_LIST>' > $resultdir/fsd-clients.list
-$script_dir/scripts/utils/addhost_to_jobfile.sh $resultdir/fsd-clients.list $ANSIBLE_INVENTORY
-sed -i 's/"//g' $resultdir/fsd-clients.list
-sed -i 's/,//g' $resultdir/fsd-clients.list
-
 # CBT uses localhost in "head" role so we need password-less 
 # ssh access to localhost, this command fixes known_hosts to allow it
 
@@ -114,7 +116,7 @@ cmd="pbench-user-benchmark -- \
         --output-json $resultdir/fsd.json \
         --top $mountpoint/fs-drift \
         --response-times Y \
-        --host-set "`cat $resultdir/fsd-clients.list| sed 's/,/ /g'`" \
+        --host-set $csv_hostlist \
         $fs_drift_parameters"
 echo $cmd | tee $resultdir/fs-drift.cmd
 eval "$cmd" 2>&1 | tee $resultdir/fs-drift.log
