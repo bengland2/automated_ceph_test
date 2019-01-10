@@ -106,18 +106,24 @@ mkdir -pv $resultdir
 
 ssh -o StrictHostKeyChecking=no localhost pwd
 
+# save workload table where workers can read it
+
+workload_table_fn=$mountpoint/fs-drift/workload_table.csv
+echo "$workload_table" > $workload_table_fn
+
 # remove any old log files so we get just what happened on this run
 
 rm -f /var/tmp/fsd.*.log
 ansible -m shell -a 'rm -f /var/tmp/fsd.*.log' clients
 
 cmd="pbench-user-benchmark -- \
-    python ~/fs-drift/fs-drift.py \
-        --output-json $resultdir/fsd.json \
-        --top $mountpoint/fs-drift \
-        --response-times Y \
-        --host-set $csv_hostlist \
-        $fs_drift_parameters"
+  python ~/fs-drift/fs-drift.py \
+    --output-json $resultdir/fsd.json \
+    --top $mountpoint/fs-drift \
+    --response-times Y \
+    --host-set $csv_hostlist \
+    --workload-table $workload_table_fn \
+    $fs_drift_parameters"
 echo $cmd | tee $resultdir/fs-drift.cmd
 eval "$cmd" 2>&1 | tee $resultdir/fs-drift.log
 rc=$?
